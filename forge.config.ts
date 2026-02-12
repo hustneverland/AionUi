@@ -118,6 +118,12 @@ module.exports = {
           onlyModules: [], // 开发启动时跳过原生模块重建，避免环境检查
         }
       : {}),
+    // Windows: only rebuild better-sqlite3, skip node-pty (winpty build is broken on Windows)
+    ...(process.platform === 'win32' && process.env.CI !== 'true' && !skipNativeRebuild
+      ? {
+          onlyModules: ['better-sqlite3'],
+        }
+      : {}),
   },
   makers: [
     // Windows-specific makers (only on Windows)
