@@ -10,9 +10,24 @@ import fs from 'fs';
 import os from 'os';
 import { fileOperationLimiter } from './middleware/security';
 
-// Allow browsing within the running workspace and the current user's home directory only
-// 仅允许在工作目录与当前用户主目录中浏览
-const DEFAULT_ALLOWED_DIRECTORIES = [process.cwd(), os.homedir()]
+function getWindowsDriveRoots(): string[] {
+  if (process.platform !== 'win32') return [];
+  const drives: string[] = [];
+  for (let i = 65; i <= 90; i++) {
+    const drive = String.fromCharCode(i) + ':\\';
+    try {
+      fs.accessSync(drive);
+      drives.push(drive);
+    } catch {
+      // drive not available
+    }
+  }
+  return drives;
+}
+
+// Allow browsing within the running workspace, home directory, and all Windows drives
+// 允许在工作目录、用户主目录以及所有 Windows 盘符中浏览
+const DEFAULT_ALLOWED_DIRECTORIES = [...new Set([process.cwd(), os.homedir(), ...getWindowsDriveRoots()])]
   .map((dir) => {
     try {
       return fs.realpathSync(dir);
@@ -97,11 +112,25 @@ function validatePath(userPath: string, allowedBasePaths = DEFAULT_ALLOWED_DIREC
 // 为目录浏览接口增加限流，避免暴力扫描
 router.get('/browse', fileOperationLimiter, (req, res) => {
   try {
-    // 默认打开 AionUi 运行目录，而不是用户 home 目录
-    const rawPath = (req.query.path as string) || process.cwd();
+    const rawPath = req.query.path as string;
+
+    // Windows: empty path returns all available drive roots
+    if (process.platform === 'win32' && !rawPath) {
+      const driveItems = getWindowsDriveRoots().map((drive) => ({
+        name: drive,
+        path: drive,
+        isDirectory: true,
+        isFile: false,
+        size: 0,
+        modified: new Date(),
+      }));
+      return res.json({ currentPath: '', parentPath: undefined, items: driveItems, canGoUp: false });
+    }
+
+    const effectivePath = rawPath || process.cwd();
 
     // Validate path to prevent directory traversal / 验证路径以防止目录遍历
-    const validatedPath = validatePath(rawPath);
+    const validatedPath = validatePath(effectivePath);
 
     // Use fs.realpathSync to resolve all symbolic links and get canonical path
     // This breaks the taint flow for CodeQL analysis
@@ -177,11 +206,13 @@ router.get('/browse', fileOperationLimiter, (req, res) => {
       return a.name.localeCompare(b.name);
     });
 
+    const isAtDriveRoot = process.platform === 'win32' && safeDir === path.parse(safeDir).root;
+
     res.json({
       currentPath: safeDir,
-      parentPath: path.dirname(safeDir),
+      parentPath: isAtDriveRoot ? '' : path.dirname(safeDir),
       items,
-      canGoUp: safeDir !== path.parse(safeDir).root,
+      canGoUp: isAtDriveRoot ? true : safeDir !== path.parse(safeDir).root,
     });
   } catch (error) {
     console.error('Directory browse error:', error);
@@ -287,7 +318,13 @@ router.get('/shortcuts', fileOperationLimiter, (_req, res) => {
       },
     ].filter((shortcut) => fs.existsSync(shortcut.path));
 
-    res.json(shortcuts);
+    const driveShortcuts = getWindowsDriveRoots().map((drive) => ({
+      name: `Drive ${drive.charAt(0)}`,
+      path: drive,
+      icon: '💾',
+    }));
+
+    res.json([...shortcuts, ...driveShortcuts]);
   } catch (error) {
     console.error('Shortcuts error:', error);
     res.status(500).json({ error: 'Failed to get shortcuts' });
