@@ -39,10 +39,44 @@ const SHELL_INHERITED_ENV_VARS = [
   'ANTHROPIC_AUTH_TOKEN', // Claude authentication (#776)
   'ANTHROPIC_API_KEY',
   'ANTHROPIC_BASE_URL',
+  // Proxy settings (needed for network access behind corporate/personal proxies)
+  'http_proxy',
+  'https_proxy',
+  'HTTP_PROXY',
+  'HTTPS_PROXY',
+  'ALL_PROXY',
+  'NO_PROXY',
+  'no_proxy',
+  'GLOBAL_AGENT_HTTP_PROXY',
+  'GLOBAL_AGENT_HTTPS_PROXY',
 ] as const;
 
 /** Cache for shell environment (loaded once per session) */
 let cachedShellEnv: Record<string, string> | null = null;
+
+/**
+ * Parse environment variable output separated by a marker.
+ * Filters variables through the whitelist and stores them in the target object.
+ * Used by both Windows (PowerShell) and Unix (bash/zsh) env loading paths.
+ *
+ * 解析由标记分隔的环境变量输出。
+ * 通过白名单过滤变量并存储到目标对象中。
+ */
+function parseEnvOutput(output: string, marker: string, target: Record<string, string>): void {
+  const markerIdx = output.indexOf(marker);
+  const envSection = markerIdx >= 0 ? output.slice(markerIdx + marker.length) : output;
+
+  for (const line of envSection.split('\n')) {
+    const eqIndex = line.indexOf('=');
+    if (eqIndex > 0) {
+      const key = line.substring(0, eqIndex).trim();
+      const value = line.substring(eqIndex + 1).trimEnd();
+      if (key && SHELL_INHERITED_ENV_VARS.includes(key as (typeof SHELL_INHERITED_ENV_VARS)[number])) {
+        target[key] = value;
+      }
+    }
+  }
+}
 
 /**
  * Load environment variables from user's login shell.
@@ -59,9 +93,24 @@ function loadShellEnvironment(): Record<string, string> {
   const startTime = Date.now();
   cachedShellEnv = {};
 
-  // Skip on Windows - shell config loading not needed
   if (process.platform === 'win32') {
-    if (PERF_LOG) console.log(`[ShellEnv] connect: shell env skipped (Windows) ${Date.now() - startTime}ms`);
+    // Windows: load env vars from PowerShell with user's profile (equivalent to bash -i -l -c 'env')
+    // PowerShell without -NoProfile loads $PROFILE, where users set proxy, PATH, etc.
+    try {
+      const marker = '__AIONUI_ENV_MARKER__';
+      const psCommand = `Write-Output '${marker}'; Get-ChildItem env: | ForEach-Object { Write-Output "$($_.Name)=$($_.Value)" }`;
+      const output = execFileSync('powershell.exe', ['-Command', psCommand], {
+        encoding: 'utf-8',
+        timeout: 10000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+
+      parseEnvOutput(output, marker, cachedShellEnv);
+    } catch (error) {
+      console.warn('[ShellEnv] Failed to load PowerShell environment:', error instanceof Error ? error.message : String(error));
+    }
+
+    if (PERF_LOG) console.log(`[ShellEnv] connect: shell env loaded (Windows) ${Date.now() - startTime}ms`);
     return cachedShellEnv;
   }
 
@@ -116,12 +165,33 @@ export async function loadShellEnvironmentAsync(): Promise<Record<string, string
     return cachedShellEnv;
   }
 
+  const startTime = Date.now();
+
   if (process.platform === 'win32') {
-    cachedShellEnv = {};
+    // Windows: async load env vars from PowerShell with user's profile
+    try {
+      const marker = '__AIONUI_ENV_MARKER__';
+      const psCommand = `Write-Output '${marker}'; Get-ChildItem env: | ForEach-Object { Write-Output "$($_.Name)=$($_.Value)" }`;
+
+      const output = await new Promise<string>((resolve, reject) => {
+        execFile('powershell.exe', ['-Command', psCommand], { encoding: 'utf-8', timeout: 10000 }, (error, stdout) => {
+          if (error) reject(error);
+          else resolve(stdout);
+        });
+      });
+
+      const env: Record<string, string> = {};
+      parseEnvOutput(output, marker, env);
+      cachedShellEnv = env;
+
+      if (PERF_LOG) console.log(`[ShellEnv] preload: PowerShell env async loaded ${Date.now() - startTime}ms`);
+    } catch (error) {
+      cachedShellEnv = {};
+      console.warn('[ShellEnv] Failed to async load PowerShell environment:', error instanceof Error ? error.message : String(error));
+    }
+
     return cachedShellEnv;
   }
-
-  const startTime = Date.now();
 
   try {
     const shell = process.env.SHELL || '/bin/bash';
