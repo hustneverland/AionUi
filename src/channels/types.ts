@@ -37,6 +37,7 @@ export interface IPluginConfigOptions {
   webhookUrl?: string;
   rateLimit?: number; // Max messages per minute
   requireMention?: boolean; // Require @mention in groups
+  proxy?: string; // HTTP/HTTPS/SOCKS5 proxy URL
 }
 
 /**
@@ -71,6 +72,8 @@ export interface IChannelPluginStatus {
   botUsername?: string;
   /** Whether the plugin has a token configured (token itself is not exposed for security) */
   hasToken?: boolean;
+  /** Proxy URL for connecting to the platform API */
+  proxyUrl?: string;
 }
 
 // ==================== User Types ====================

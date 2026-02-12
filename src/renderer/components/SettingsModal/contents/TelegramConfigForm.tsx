@@ -56,6 +56,7 @@ const TelegramConfigForm: React.FC<TelegramConfigFormProps> = ({ pluginStatus, m
   const { t } = useTranslation();
 
   const [telegramToken, setTelegramToken] = useState('');
+  const [proxyUrl, setProxyUrl] = useState('');
   const [testLoading, setTestLoading] = useState(false);
   const [tokenTested, setTokenTested] = useState(false);
   const [testedBotUsername, setTestedBotUsername] = useState<string | null>(null);
@@ -97,6 +98,13 @@ const TelegramConfigForm: React.FC<TelegramConfigFormProps> = ({ pluginStatus, m
       setUsersLoading(false);
     }
   }, []);
+
+  // Load saved proxy from plugin status
+  useEffect(() => {
+    if (pluginStatus?.proxyUrl) {
+      setProxyUrl(pluginStatus.proxyUrl);
+    }
+  }, [pluginStatus?.proxyUrl]);
 
   // Initial load
   useEffect(() => {
@@ -181,6 +189,7 @@ const TelegramConfigForm: React.FC<TelegramConfigFormProps> = ({ pluginStatus, m
       const result = await channel.testPlugin.invoke({
         pluginId: 'telegram_default',
         token: telegramToken.trim(),
+        extraConfig: proxyUrl.trim() ? { proxy: proxyUrl.trim() } : undefined,
       });
 
       if (result.success && result.data?.success) {
@@ -207,7 +216,7 @@ const TelegramConfigForm: React.FC<TelegramConfigFormProps> = ({ pluginStatus, m
     try {
       const result = await channel.enablePlugin.invoke({
         pluginId: 'telegram_default',
-        config: { token: telegramToken.trim() },
+        config: { token: telegramToken.trim(), ...(proxyUrl.trim() ? { proxy: proxyUrl.trim() } : {}) },
       });
 
       if (result.success) {
@@ -323,6 +332,10 @@ const TelegramConfigForm: React.FC<TelegramConfigFormProps> = ({ pluginStatus, m
             </Button>
           )}
         </div>
+      </PreferenceRow>
+
+      <PreferenceRow label={t('settings.proxyConfig', 'Proxy')} description={t('settings.assistant.proxyDesc', 'HTTP/HTTPS/SOCKS5 proxy for connecting to Telegram API')}>
+        <Input value={proxyUrl} onChange={setProxyUrl} placeholder='http://127.0.0.1:7890' style={{ width: 240 }} allowClear />
       </PreferenceRow>
 
       {/* Agent Selection */}

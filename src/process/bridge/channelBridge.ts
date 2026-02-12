@@ -51,6 +51,7 @@ export function initChannelBridge(): void {
           lastConnected: plugin.lastConnected,
           activeUsers: 0, // Will be populated from PluginManager when implemented
           hasToken,
+          proxyUrl: plugin.config?.proxy,
         };
       });
 

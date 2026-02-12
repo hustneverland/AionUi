@@ -219,7 +219,12 @@ export class ChannelManager {
       if (token) {
         credentials = { token };
       }
-    } else if (pluginType === 'lark') {
+    }
+
+    // Extract proxy from config (applies to telegram)
+    const proxy = config.proxy as string | undefined;
+
+    if (pluginType === 'lark') {
       const appId = config.appId as string | undefined;
       const appSecret = config.appSecret as string | undefined;
       const encryptKey = config.encryptKey as string | undefined;
@@ -235,7 +240,7 @@ export class ChannelManager {
       name: existing?.name || this.getPluginNameFromId(pluginId),
       enabled: true,
       credentials,
-      config: { ...existing?.config },
+      config: { ...existing?.config, ...(proxy !== undefined ? { proxy: proxy || undefined } : {}) },
       status: 'created',
       createdAt: existing?.createdAt || Date.now(),
       updatedAt: Date.now(),
@@ -285,11 +290,11 @@ export class ChannelManager {
   /**
    * Test a plugin connection without enabling it
    */
-  async testPlugin(pluginId: string, token: string, extraConfig?: { appId?: string; appSecret?: string }): Promise<{ success: boolean; botUsername?: string; error?: string }> {
+  async testPlugin(pluginId: string, token: string, extraConfig?: { appId?: string; appSecret?: string; proxy?: string }): Promise<{ success: boolean; botUsername?: string; error?: string }> {
     const pluginType = this.getPluginTypeFromId(pluginId);
 
     if (pluginType === 'telegram') {
-      const result = await TelegramPlugin.testConnection(token);
+      const result = await TelegramPlugin.testConnection(token, extraConfig?.proxy);
       return {
         success: result.success,
         botUsername: result.botInfo?.username,

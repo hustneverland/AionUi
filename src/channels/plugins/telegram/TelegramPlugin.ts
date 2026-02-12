@@ -33,6 +33,21 @@ export class TelegramPlugin extends BasePlugin {
   private activeUsers: Set<string> = new Set();
 
   /**
+   * Create a proxy agent from a proxy URL
+   * Supports http/https (HttpsProxyAgent) and socks4/socks5 (SocksProxyAgent)
+   */
+  private static async createProxyAgent(proxy: string): Promise<unknown> {
+    const lower = proxy.toLowerCase();
+    if (lower.startsWith('socks4:') || lower.startsWith('socks5:') || lower.startsWith('socks4a:') || lower.startsWith('socks5h:')) {
+      const { SocksProxyAgent } = await import('socks-proxy-agent');
+      return new SocksProxyAgent(proxy);
+    }
+    // Default: http/https proxy
+    const { HttpsProxyAgent } = await import('https-proxy-agent');
+    return new HttpsProxyAgent(proxy);
+  }
+
+  /**
    * Initialize the Telegram bot instance
    */
   protected async onInitialize(config: IChannelPluginConfig): Promise<void> {
@@ -41,8 +56,17 @@ export class TelegramPlugin extends BasePlugin {
       throw new Error('Telegram bot token is required');
     }
 
-    // Create bot instance
-    this.bot = new Bot(token);
+    const proxy = config.config?.proxy;
+
+    // Create bot instance with optional proxy
+    if (proxy) {
+      const agent = await TelegramPlugin.createProxyAgent(proxy);
+      this.bot = new Bot(token, {
+        client: { baseFetchConfig: { agent } as any },
+      });
+    } else {
+      this.bot = new Bot(token);
+    }
 
     // Setup handlers
     this.setupHandlers();
@@ -560,9 +584,17 @@ export class TelegramPlugin extends BasePlugin {
    * Test connection with a token
    * Used by Settings UI to validate token before saving
    */
-  static async testConnection(token: string): Promise<{ success: boolean; botInfo?: BotInfo; error?: string }> {
+  static async testConnection(token: string, proxy?: string): Promise<{ success: boolean; botInfo?: BotInfo; error?: string }> {
     try {
-      const bot = new Bot(token);
+      let bot: Bot;
+      if (proxy) {
+        const agent = await TelegramPlugin.createProxyAgent(proxy);
+        bot = new Bot(token, {
+          client: { baseFetchConfig: { agent } as any },
+        });
+      } else {
+        bot = new Bot(token);
+      }
       const me = await bot.api.getMe();
 
       return {
