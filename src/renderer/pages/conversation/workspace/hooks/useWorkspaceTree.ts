@@ -7,7 +7,7 @@
 import { ipcBridge } from '@/common';
 import type { IDirOrFile } from '@/common/ipcBridge';
 import { emitter } from '@/renderer/utils/emitter';
-import { dispatchWorkspaceHasFilesEvent } from '@/renderer/utils/workspaceEvents';
+
 import { useCallback, useRef, useState } from 'react';
 import type { SelectedNodeRef } from '../types';
 import { getFirstLevelKeys } from '../utils/treeHelpers';
@@ -82,21 +82,9 @@ export function useWorkspaceTree({ workspace, conversation_id, eventPrefix }: Us
           // Only expand first level folders (root node)
           setExpandedKeys(getFirstLevelKeys(res));
 
-          // 根据是否有文件决定工作空间面板的展开/折叠状态
-          // Determine workspace panel expand/collapse state based on files
-          const hasFiles = res.length > 0 && (res[0]?.children?.length ?? 0) > 0;
-
+          // Mark first load done (no longer auto-expand the workspace panel)
           if (isFirstLoadRef.current) {
-            // 首次加载（切换会话或打开会话）：有文件展开，没文件折叠
-            // First load (switch or open conversation): expand if has files, collapse if not
-            dispatchWorkspaceHasFilesEvent(hasFiles, conversation_id);
             isFirstLoadRef.current = false;
-          } else {
-            // 后续刷新（Agent 生成文件等）：有文件就展开，不主动折叠
-            // Subsequent refresh (agent generates files, etc.): expand if has files, never collapse
-            if (hasFiles) {
-              dispatchWorkspaceHasFilesEvent(true, conversation_id);
-            }
           }
 
           return res;
