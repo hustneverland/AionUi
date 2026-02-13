@@ -13,7 +13,6 @@ import { ProcessConfig } from '../initStorage';
 import { addMessage, addOrUpdateMessage, nextTickToLocalFinish } from '../message';
 import { handlePreviewOpenEvent } from '../utils/previewUtils';
 import { cronBusyGuard } from '@process/services/cron/CronBusyGuard';
-import { prepareFirstMessageWithSkillsIndex } from './agentUtils';
 /** Enable ACP performance diagnostics via ACP_PERF=1 */
 const ACP_PERF_LOG = process.env.ACP_PERF === '1';
 
@@ -44,7 +43,6 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
   workspace: string;
   agent: AcpAgent;
   private bootstrap: Promise<AcpAgent> | undefined;
-  private isFirstMessage: boolean = true;
   options: AcpAgentManagerData;
   // Track current message for cron detection (accumulated from streaming chunks)
   private currentMsgId: string | null = null;
@@ -307,15 +305,6 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
           contentToSend = contentToSend.split(AIONUI_FILES_MARKER)[0].trimEnd();
         }
 
-        // 首条消息时注入预设规则和 skills 索引（来自智能助手配置）
-        // Inject preset context and skills INDEX on first message (from smart assistant config)
-        if (this.isFirstMessage) {
-          contentToSend = await prepareFirstMessageWithSkillsIndex(contentToSend, {
-            presetContext: this.options.presetContext,
-            enabledSkills: this.options.enabledSkills,
-          });
-        }
-
         const userMessage: TMessage = {
           id: data.msg_id,
           msg_id: data.msg_id,
@@ -339,10 +328,6 @@ class AcpAgentManager extends BaseAgentManager<AcpAgentManagerData, AcpPermissio
         const agentSendStart = Date.now();
         const result = await this.agent.sendMessage({ ...data, content: contentToSend });
         if (ACP_PERF_LOG) console.log(`[ACP-PERF] manager: agent.sendMessage completed ${Date.now() - agentSendStart}ms (total manager.sendMessage: ${Date.now() - managerSendStart}ms)`);
-        // 首条消息发送后标记，无论是否有 presetContext
-        if (this.isFirstMessage) {
-          this.isFirstMessage = false;
-        }
         // Note: cronBusyGuard.setProcessing(false) is not called here
         // because the response streaming is still in progress.
         // It will be cleared when the conversation ends or on error.
