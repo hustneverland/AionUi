@@ -5,6 +5,7 @@
  */
 
 import { shell, webui, type IWebUIStatus } from '@/common/ipcBridge';
+import { ConfigStorage } from '@/common/storage';
 import AionModal from '@/renderer/components/base/AionModal';
 import AionScrollArea from '@/renderer/components/base/AionScrollArea';
 import { isElectronDesktop } from '@/renderer/utils/platform';
@@ -120,6 +121,15 @@ const WebuiModalContent: React.FC = () => {
         // 注意：如果 running 但没有密码，会在下面的 useEffect 中自动重置
         // Note: If running but no password, auto-reset will be triggered in the useEffect below
       } else {
+        // Restore allowRemote from persisted config when server is not running
+        try {
+          const savedConfig = await ConfigStorage.get('webui.config');
+          if (savedConfig?.allowRemote) {
+            setAllowRemote(true);
+          }
+        } catch {
+          // ignore
+        }
         setStatus(
           (prev) =>
             prev || {
@@ -264,13 +274,15 @@ const WebuiModalContent: React.FC = () => {
         }
 
         Message.success(t('settings.webui.startSuccess'));
-        // 启动返回的数据已经足够，不再需要延迟获取状态
-        // Start result contains all needed data, no need for delayed status fetch
+        // Persist enabled state
+        void ConfigStorage.set('webui.config', { enabled: true, port, allowRemote });
       } else {
         // 立即更新UI，异步停止服务器 / Update UI immediately, stop server async
         setStatus((prev) => (prev ? { ...prev, running: false } : null));
         Message.success(t('settings.webui.stopSuccess'));
         webui.stop.invoke().catch((err) => console.error('WebUI stop error:', err));
+        // Persist disabled state
+        void ConfigStorage.set('webui.config', { enabled: false, port, allowRemote });
       }
     } catch (error) {
       console.error('Toggle WebUI error:', error);
@@ -320,6 +332,8 @@ const WebuiModalContent: React.FC = () => {
           }));
 
           Message.success(t('settings.webui.restartSuccess'));
+          // Persist allowRemote change
+          void ConfigStorage.set('webui.config', { enabled: true, port, allowRemote: checked });
         } else {
           // 响应为空或失败，但服务器可能已启动，检查状态
           // Response is null or failed, but server might have started, check status
@@ -338,6 +352,8 @@ const WebuiModalContent: React.FC = () => {
             setAllowRemote(checked);
             setStatus(statusResult.data);
             Message.success(t('settings.webui.restartSuccess'));
+            // Persist allowRemote change
+            void ConfigStorage.set('webui.config', { enabled: true, port, allowRemote: checked });
           } else {
             // 真的启动失败 / Really failed to start
             Message.error(t('settings.webui.operationFailed'));
@@ -353,6 +369,8 @@ const WebuiModalContent: React.FC = () => {
     } else {
       // 服务器未运行，只更新状态 / Server not running, just update state
       setAllowRemote(checked);
+      // Persist allowRemote change (server not running)
+      void ConfigStorage.set('webui.config', { enabled: false, port, allowRemote: checked });
 
       // 获取 IP 用于显示 / Get IP for display
       let newIP: string | undefined;

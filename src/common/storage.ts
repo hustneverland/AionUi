@@ -92,6 +92,12 @@ export interface IConfigStorageRefer {
     customAgentId?: string;
     name?: string;
   };
+  // WebUI service state persistence / WebUI 服务状态持久化
+  'webui.config'?: {
+    enabled: boolean;
+    port: number;
+    allowRemote: boolean;
+  };
 }
 
 export interface IEnvStorageRefer {
