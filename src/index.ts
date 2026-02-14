@@ -17,8 +17,9 @@ import { initializeAcpDetector } from './process/bridge';
 import { registerWindowMaximizeListeners } from './process/bridge/windowControlsBridge';
 import WorkerManage from './process/WorkerManage';
 import { setupApplicationMenu } from './utils/appMenu';
-import { startWebServer } from './webserver';
+import { startWebServer, startWebServerWithInstance } from './webserver';
 import { SERVER_CONFIG } from './webserver/config/constants';
+import { setWebServerInstance } from './process/bridge/webuiBridge';
 import { applyZoomToWindow } from './process/utils/zoom';
 import { ProcessConfig } from './process/initStorage';
 // @ts-expect-error - electron-squirrel-startup doesn't have types
@@ -376,7 +377,8 @@ const handleAppReady = async (): Promise<void> => {
       if (webuiConfig?.enabled) {
         const port = webuiConfig.port || SERVER_CONFIG.DEFAULT_PORT;
         const allowRemote = webuiConfig.allowRemote || false;
-        await startWebServer(port, allowRemote);
+        const instance = await startWebServerWithInstance(port, allowRemote);
+        setWebServerInstance(instance);
         console.log(`[App] WebUI auto-started on port ${port} (allowRemote: ${allowRemote})`);
       }
     } catch (error) {
