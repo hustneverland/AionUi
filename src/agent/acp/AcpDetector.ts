@@ -8,6 +8,7 @@ import { execSync } from 'child_process';
 import type { AcpBackendAll, PresetAgentType } from '@/types/acpTypes';
 import { POTENTIAL_ACP_CLIS } from '@/types/acpTypes';
 import { ProcessConfig } from '@/process/initStorage';
+import { getEnhancedEnv } from '@process/utils/shellEnv';
 
 interface DetectedAgent {
   backend: AcpBackendAll;
@@ -75,6 +76,10 @@ class AcpDetector {
     console.log('[ACP] Starting agent detection...');
     const startTime = Date.now();
 
+    // Load enhanced environment (includes PATH from shell, proxy settings, etc.)
+    // 加载增强的环境变量（包含 shell 的 PATH、代理设置等）
+    const enhancedEnv = getEnhancedEnv();
+
     const isWindows = process.platform === 'win32';
     const whichCommand = isWindows ? 'where' : 'which';
 
@@ -86,6 +91,7 @@ class AcpDetector {
           encoding: 'utf-8',
           stdio: 'pipe',
           timeout: 1000,
+          env: enhancedEnv, // Use enhanced env with shell PATH and proxy settings
         });
         return true;
       } catch {
@@ -100,6 +106,7 @@ class AcpDetector {
             encoding: 'utf-8',
             stdio: 'pipe',
             timeout: 1000,
+            env: enhancedEnv, // Use enhanced env for PowerShell as well
           });
           return true;
         } catch {
