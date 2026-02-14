@@ -302,15 +302,18 @@ const WebuiModalContent: React.FC = () => {
     if (wasRunning) {
       setStartLoading(true);
       try {
-        // 1. 先停止服务器 / First stop the server
+        // 1. 先停止服务器（等待完成，Windows 端口释放较慢）/ First stop the server (wait for completion, Windows port release is slow)
         try {
-          await Promise.race([webui.stop.invoke(), new Promise((resolve) => setTimeout(resolve, 1500))]);
+          await Promise.race([webui.stop.invoke(), new Promise((resolve) => setTimeout(resolve, 8000))]);
         } catch (err) {
           console.error('WebUI stop error:', err);
         }
 
-        // 2. 立即重新启动（服务器停止很快）/ Restart immediately (server stops quickly)
-        const startResult = await Promise.race([webui.start.invoke({ port, allowRemote: checked }), new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000))]);
+        // 等待端口释放（Windows 上需要额外时间）/ Wait for port release (Windows needs extra time)
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        // 2. 重新启动 / Restart
+        const startResult = await Promise.race([webui.start.invoke({ port, allowRemote: checked }), new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000))]);
 
         if (startResult && startResult.success && startResult.data) {
           const responseIP = startResult.data.lanIP;
