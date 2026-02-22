@@ -187,6 +187,7 @@ function CodeBlock(props: any) {
               language={language}
               style={codeTheme}
               PreTag='div'
+              wrapLongLines={true}
               wrapLines={isDiff}
               lineProps={
                 isDiff
@@ -288,16 +289,22 @@ const createInitStyle = (currentTheme = 'light', cssVars?: Record<string, string
    /* 给整个表格添加边框 */
   table {
     border-collapse: collapse;  /* 表格边框合并为单一边框 */
+    width: 100%;
+    table-layout: fixed;
+    word-break: break-word;
     th{
       padding: 8px;
       border: 1px solid var(--bg-3);
       background-color: var(--bg-1);
       font-weight: bold;
+      word-break: break-word;
+      overflow-wrap: anywhere;
     }
     td{
         padding: 8px;
         border: 1px solid var(--bg-3);
-        min-width: 120px;
+        word-break: break-word;
+        overflow-wrap: anywhere;
     }
   }
   /* Inline code should wrap on small screens to avoid horizontal overflow */
@@ -563,17 +570,17 @@ const MarkdownView: React.FC<MarkdownViewProps> = ({ hiddenCodeCopyButton, codeS
                 />
               ),
               table: ({ node: _node, ...props }) => (
-                <div style={{ overflowX: 'auto', maxWidth: '100%' }}>
-                  <table
-                    {...props}
-                    style={{
-                      ...props.style,
-                      borderCollapse: 'collapse',
-                      border: '1px solid var(--bg-3)',
-                      minWidth: '100%',
-                    }}
-                  />
-                </div>
+                <table
+                  {...props}
+                  style={{
+                    ...props.style,
+                    borderCollapse: 'collapse',
+                    border: '1px solid var(--bg-3)',
+                    width: '100%',
+                    tableLayout: 'fixed',
+                    wordBreak: 'break-word',
+                  }}
+                />
               ),
               td: ({ node: _node, ...props }) => (
                 <td
@@ -582,7 +589,8 @@ const MarkdownView: React.FC<MarkdownViewProps> = ({ hiddenCodeCopyButton, codeS
                     ...props.style,
                     padding: '8px',
                     border: '1px solid var(--bg-3)',
-                    minWidth: '120px',
+                    wordBreak: 'break-word',
+                    overflowWrap: 'anywhere',
                   }}
                 />
               ),
