@@ -62,6 +62,7 @@ const TelegramConfigForm: React.FC<TelegramConfigFormProps> = ({
   const { t } = useTranslation();
 
   const [telegramToken, setTelegramToken] = useState('');
+  const [proxyUrl, setProxyUrl] = useState('');
   const [testLoading, setTestLoading] = useState(false);
   const [tokenTested, setTokenTested] = useState(false);
   const [testedBotUsername, setTestedBotUsername] = useState<string | null>(null);
@@ -205,6 +206,7 @@ const TelegramConfigForm: React.FC<TelegramConfigFormProps> = ({
       const result = await channel.testPlugin.invoke({
         pluginId: 'telegram_default',
         token: telegramToken.trim(),
+        proxy: proxyUrl.trim() || undefined,
       });
 
       if (result.success && result.data?.success) {
@@ -233,7 +235,7 @@ const TelegramConfigForm: React.FC<TelegramConfigFormProps> = ({
     try {
       const result = await channel.enablePlugin.invoke({
         pluginId: 'telegram_default',
-        config: { token: telegramToken.trim() },
+        config: { token: telegramToken.trim(), proxy: proxyUrl.trim() || undefined },
       });
 
       if (result.success) {
@@ -389,6 +391,21 @@ const TelegramConfigForm: React.FC<TelegramConfigFormProps> = ({
             </Button>
           )}
         </div>
+      </PreferenceRow>
+
+      <PreferenceRow
+        label={t('settings.assistant.proxy', 'Proxy')}
+        description={t(
+          'settings.assistant.proxyDesc',
+          'Optional. HTTP/HTTPS/SOCKS5 proxy for Telegram API (e.g. socks5://127.0.0.1:1080)'
+        )}
+      >
+        <Input
+          value={proxyUrl}
+          onChange={setProxyUrl}
+          placeholder='socks5://127.0.0.1:1080'
+          style={{ width: 240 }}
+        />
       </PreferenceRow>
 
       {/* Agent Selection */}

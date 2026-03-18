@@ -381,12 +381,13 @@ export class ChannelManager {
   async testPlugin(
     pluginId: string,
     token: string,
-    extraConfig?: { appId?: string; appSecret?: string }
+    extraConfig?: { appId?: string; appSecret?: string },
+    proxy?: string
   ): Promise<{ success: boolean; botUsername?: string; error?: string }> {
     const pluginType = this.getPluginTypeFromId(pluginId);
 
     if (pluginType === 'telegram') {
-      const result = await TelegramPlugin.testConnection(token);
+      const result = await TelegramPlugin.testConnection(token, proxy);
       return {
         success: result.success,
         botUsername: result.botInfo?.username,

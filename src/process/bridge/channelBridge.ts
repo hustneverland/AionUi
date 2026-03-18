@@ -207,10 +207,10 @@ export function initChannelBridge(): void {
   /**
    * Test plugin connection (validate token)
    */
-  channel.testPlugin.provider(async ({ pluginId, token, extraConfig }) => {
+  channel.testPlugin.provider(async ({ pluginId, token, proxy, extraConfig }) => {
     try {
       const manager = getChannelManager();
-      const result = await manager.testPlugin(pluginId, token, extraConfig);
+      const result = await manager.testPlugin(pluginId, token, extraConfig, proxy);
       return { success: true, data: result };
     } catch (error: any) {
       console.error('[ChannelBridge] testPlugin error:', error);
