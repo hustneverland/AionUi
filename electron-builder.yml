@@ -105,9 +105,7 @@ extraResources:
 
 win:
   target:
-    - nsis
-#    - msi
-    - zip
+    - dir
   icon: resources/app.ico  # Use the checked-in Windows icon resource for executable metadata/icon patching
   artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 
@@ -157,8 +155,8 @@ afterSign: scripts/afterSign.js
 
 linux:
   target:
-    - target: deb
-      arch: [x64, arm64] # armv7l
+    - target: AppImage
+      arch: [x64]
   icon: resources/app.png
   artifactName: ${productName}-${version}-${os}-${arch}.${ext}
   category: Utility
